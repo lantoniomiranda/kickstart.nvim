@@ -207,6 +207,9 @@ vim.keymap.set('n', '<C-k>', '<C-w><C-k>', { desc = 'Move focus to the upper win
 --
 -- NOTE: This are my custom mappings
 vim.keymap.set('n', '<leader>cs', ':Telescope colorscheme<CR>', { desc = 'Change colorscheme' })
+vim.keymap.set('n', '<leader>w', ':w<CR>', { desc = 'Save changes' })
+vim.keymap.set('n', '<leader>q', ':q<CR>', { desc = 'Exit file' })
+vim.keymap.set('n', '<leader>qa', ':q<CR>', { desc = 'Exit all file' })
 
 -- [[ Basic Autocommands ]]
 --  See `:help lua-guide-autocommands`
