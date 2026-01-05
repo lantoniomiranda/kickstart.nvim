@@ -29,7 +29,7 @@ return {
       harpoon:list():add()
     end, { desc = 'harpoon add file' })
 
-    vim.keymap.set('n', '<C-e>', function()
+    vim.keymap.set('n', '<leader>ch', function()
       toggle_telescope(harpoon:list())
     end, { desc = 'harpoon telescope menu' })
 
