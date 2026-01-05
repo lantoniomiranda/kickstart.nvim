@@ -210,6 +210,8 @@ vim.keymap.set('n', '<leader>cs', ':Telescope colorscheme<CR>', { desc = 'Change
 vim.keymap.set('n', '<leader>w', ':w<CR>', { desc = 'Save changes' })
 vim.keymap.set('n', '<leader>q', ':q<CR>', { desc = 'Exit file' })
 vim.keymap.set('n', '<leader>qa', ':q<CR>', { desc = 'Exit all file' })
+vim.keymap.set('n', 'gb', '<C-o>', { desc = 'Jump Back' })
+vim.keymap.set('n', 'gi', '<C-i>', { desc = 'Jump Forward' })
 
 -- [[ Basic Autocommands ]]
 --  See `:help lua-guide-autocommands`
