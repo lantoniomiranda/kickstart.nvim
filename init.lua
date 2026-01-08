@@ -43,6 +43,7 @@ What is Kickstart?
 
 Kickstart Guide:
 
+
   TODO: The very first thing you should do is to run the command `:Tutor` in Neovim.
 
     If you don't know what this means, type the following:
@@ -917,8 +918,20 @@ require('lazy').setup({
     end,
   },
 
-  -- Highlight todo, notes, etc in comments
-  { 'folke/todo-comments.nvim', event = 'VimEnter', dependencies = { 'nvim-lua/plenary.nvim' }, opts = { signs = false } },
+  {
+    'folke/todo-comments.nvim',
+    event = 'VimEnter',
+    dependencies = { 'nvim-lua/plenary.nvim' },
+    opts = {
+      signs = false,
+      keywords = {
+        AI = { icon = '󱚣 ', color = 'AI' },
+      },
+      colors = {
+        AI = '#c586dd', -- custom purple for AI
+      },
+    },
+  },
 
   { -- Collection of various small independent plugins/modules
     'echasnovski/mini.nvim',
