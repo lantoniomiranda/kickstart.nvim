@@ -111,6 +111,17 @@ vim.o.mouse = 'a'
 -- Don't show the mode, since it's already in the status line
 vim.o.showmode = false
 
+-- Enable true color support for theme/cursor highlight accuracy
+vim.o.termguicolors = true
+
+-- Use highlight groups for cursor appearance (instead of terminal default cursor color)
+vim.opt.guicursor = table.concat({
+  'n-v-c-sm:block-Cursor',
+  'i-ci-ve:ver25-Cursor',
+  'r-cr-o:hor20-Cursor',
+  'a:blinkwait700-blinkoff400-blinkon250',
+}, ',')
+
 -- Sync clipboard between OS and Neovim.
 --  Schedule the setting after `UiEnter` because it can increase startup-time.
 --  Remove this option if you want your OS clipboard to remain independent.
@@ -213,6 +224,53 @@ vim.keymap.set('n', '<leader>q', ':q<CR>', { desc = 'Exit file' })
 vim.keymap.set('n', '<leader>qa', ':q<CR>', { desc = 'Exit all file' })
 vim.keymap.set('n', 'gb', '<C-o>', { desc = 'Jump Back' })
 vim.keymap.set('n', 'gf', '<C-i>', { desc = 'Jump Forward' })
+
+-- Quick theme switching for bright/dim environments
+local function set_cursor_contrast(mode)
+  if mode == 'light' then
+    -- Maximum contrast in bright environments: black block + bright glyph
+    vim.api.nvim_set_hl(0, 'Cursor', { fg = '#ffffff', bg = '#000000', bold = true, nocombine = true })
+    vim.api.nvim_set_hl(0, 'lCursor', { fg = '#ffffff', bg = '#000000', bold = true, nocombine = true })
+    vim.api.nvim_set_hl(0, 'TermCursor', { fg = '#ffffff', bg = '#000000', bold = true, nocombine = true })
+  else
+    -- Keep strong contrast in dark mode as well
+    vim.api.nvim_set_hl(0, 'Cursor', { fg = '#1a1b26', bg = '#c0caf5', bold = true })
+    vim.api.nvim_set_hl(0, 'lCursor', { fg = '#1a1b26', bg = '#c0caf5', bold = true })
+    vim.api.nvim_set_hl(0, 'TermCursor', { fg = '#1a1b26', bg = '#c0caf5', bold = true })
+  end
+end
+
+local function set_theme_mode(mode)
+  if mode == 'light' then
+    vim.o.background = 'light'
+    vim.cmd.colorscheme 'tokyonight-day'
+    set_cursor_contrast 'light'
+    vim.notify('Theme switched to light mode (tokyonight-day)')
+  else
+    vim.o.background = 'dark'
+    vim.cmd.colorscheme 'tokyonight-night'
+    set_cursor_contrast 'dark'
+    vim.notify('Theme switched to dark mode (tokyonight-night)')
+  end
+end
+
+vim.api.nvim_create_user_command('ToggleTheme', function()
+  if vim.o.background == 'dark' then
+    set_theme_mode 'light'
+  else
+    set_theme_mode 'dark'
+  end
+end, { desc = 'Toggle between light and dark theme' })
+
+vim.api.nvim_create_user_command('LightMode', function()
+  set_theme_mode 'light'
+end, { desc = 'Switch to light theme mode' })
+
+vim.api.nvim_create_user_command('DarkMode', function()
+  set_theme_mode 'dark'
+end, { desc = 'Switch to dark theme mode' })
+
+vim.keymap.set('n', '<leader>tl', '<cmd>ToggleTheme<CR>', { desc = '[T]oggle [L]ight/Dark theme' })
 
 -- [[ Basic Autocommands ]]
 --  See `:help lua-guide-autocommands`
@@ -915,6 +973,7 @@ require('lazy').setup({
       -- Like many other themes, this one has different styles, and you could load
       -- any other, such as 'tokyonight-storm', 'tokyonight-moon', or 'tokyonight-day'.
       vim.cmd.colorscheme 'tokyonight-night'
+      set_cursor_contrast 'dark'
     end,
   },
 
