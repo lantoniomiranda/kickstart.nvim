@@ -1,10 +1,13 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- `init.lua`: main entry point; core options, keymaps, and plugin specs live here.
+- `init.lua`: main entry point; core options, keymaps, theme, and base plugin specs live here.
 - `lua/kickstart/`: reusable Kickstart modules (for example `health.lua` and plugin configs under `plugins/`).
-- `lua/custom/plugins/`: local, user-specific plugin overrides/extensions (for example `harpoon.lua`, `sqls.lua`).
-- `doc/`: Vim help docs (`doc/kickstart.txt`).
+- `lua/custom/plugins/`: feature-specific plugin specs (for example `lsp.lua`, `formatting.lua`, `treesitter.lua`, `diagnostics.lua`).
+- `lua/custom/languages.lua`: the shared server, tool, formatter, and parser lists.
+- `lua/custom/health.lua`: language tool checks, run with `:checkhealth custom`.
+- `after/ftplugin/`: filetype overrides applied after Neovim's defaults; restore buffer settings through `b:undo_ftplugin`.
+- `doc/`: workflow guide (`custom-workflow.md`) and original Vim help docs (`kickstart.txt`).
 - `.github/workflows/`: CI checks (currently Stylua formatting validation).
 - `lazy-lock.json`: plugin lockfile managed by `lazy.nvim`.
 

@@ -1,11 +1,24 @@
 # kickstart.nvim
 
+For this configuration's languages, formatting, diagnostics modal, and AI keys,
+see [the custom workflow guide](doc/custom-workflow.md).
+
+## Configuration layout
+
+- `init.lua`: core options, keymaps, theme, and base Kickstart plugins.
+- `lua/custom/plugins/`: feature specs for LSP, completion, formatting, Treesitter,
+  diagnostics, AI, Markdown rendering, and Harpoon.
+- `lua/custom/languages.lua`: enabled servers, tools, formatters, and parsers.
+- `lua/custom/health.lua`: language tool checks (`:checkhealth custom`).
+- `after/ftplugin/markdown.lua`: Markdown settings applied after Neovim's defaults.
+- `lua/kickstart/`: the original reusable Kickstart modules.
+
 ## Introduction
 
 A starting point for Neovim that is:
 
 * Small
-* Single-file
+* Organized into focused modules
 * Completely Documented
 
 **NOT** a Neovim distribution, but instead a starting point for your configuration.
