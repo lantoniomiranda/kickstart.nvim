@@ -8,10 +8,50 @@ see [the custom workflow guide](doc/custom-workflow.md).
 - `init.lua`: core options, keymaps, theme, and base Kickstart plugins.
 - `lua/custom/plugins/`: feature specs for LSP, completion, formatting, Treesitter,
   diagnostics, AI, Markdown rendering, and Harpoon.
-- `lua/custom/languages.lua`: enabled servers, tools, formatters, and parsers.
+- `lua/custom/languages.lua`: enabled servers, tools, formatters, linters, and parsers.
 - `lua/custom/health.lua`: language tool checks (`:checkhealth custom`).
 - `after/ftplugin/markdown.lua`: Markdown settings applied after Neovim's defaults.
 - `lua/kickstart/`: the original reusable Kickstart modules.
+
+## Makefiles and Taskfiles
+
+Makefiles (`Makefile`, `makefile`, `GNUmakefile`, `.mk`, `.mak`) have Treesitter
+highlighting, variable/function completion, and navigation through `make-ls`.
+Lazy builds this server using Go; use `:Lazy build make-ls` if needed.
+Recipe indentation uses
+literal tabs and Neovim's native Make indentation. Automatic indentation guessing
+and formatting are disabled for Makefiles to preserve recipe whitespace.
+
+Taskfiles use YAML highlighting, Prettier formatting, and the
+[official Taskfile schema](https://taskfile.dev/schema.json) for completion,
+hover documentation, and validation. This includes `Taskfile.yml`, `Taskfile.yaml`,
+`Taskfile.dist.yml`, platform variants such as `Taskfile.linux.yml`, and
+extensionless `Taskfile`/`taskfile`. Quote template values such as `"{{.NAME}}"`
+when YAML requires a string. For differently named included YAML files, add:
+
+```yaml
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+```
+
+Use Ctrl-Space for completion and `<Space>dd` for diagnostics. Run
+`:checkhealth custom` to check Make/Task and their editor tools. Commands can be
+run with Neovim's `:make` or `:terminal task <name>`.
+
+## Dockerfiles
+
+`Dockerfile`, `Dockerfile.*`, `*.Dockerfile`, `*.dockerfile`, `Containerfile`, and
+`Containerfile.*` use Dockerfile highlighting and language-server completion,
+hover documentation, and diagnostics. Hadolint adds Dockerfile and shell lint
+messages to the existing diagnostics modal (`<Space>dd`). Project `.hadolint.yaml`
+settings control its rules.
+
+`Dockerfile.*` and `Containerfile.*` also use the standard Docker icon in file
+pickers, the file tree, and the statusline.
+
+Formatting uses the Dockerfile language server through Conform, on save or with
+`<Space>f`. Multiline instructions are preserved. Node/npm is required for editor
+tools; a running Docker daemon is not required. Check tool availability with
+`:checkhealth custom`.
 
 ## Introduction
 

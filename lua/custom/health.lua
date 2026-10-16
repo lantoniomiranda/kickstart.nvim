@@ -3,6 +3,13 @@ local M = {}
 function M.check()
   vim.health.start 'Language completion and formatting'
   local requirements = {
+    { 'Dockerfiles', { 'node', 'docker-langserver', 'hadolint' }, 'Install Node/npm; run :MasonToolsInstall for Dockerfile editor tools.' },
+    {
+      'Makefiles',
+      { 'make', require('lazy.core.config').plugins['make-ls'].dir .. '/make-ls' },
+      'Install Make and Go; run :Lazy build make-ls for its language server.',
+    },
+    { 'Taskfiles', { 'task', 'yaml-language-server', 'prettier' }, 'Install Task and Node/npm; run :MasonToolsInstall for editor tools.' },
     { 'Go', { 'go', 'gopls', 'goimports' }, 'Install Go; run :MasonToolsInstall for editor tools.' },
     { 'C/C++', { 'clangd', 'clang-format' }, 'Run :MasonToolsInstall; supply compile_commands.json for your project.' },
     { 'Python', { 'python3', 'pyright-langserver', 'ruff' }, 'Install Python; run :MasonToolsInstall and activate the project virtual environment.' },

@@ -2,6 +2,37 @@
 -- OCaml and Ruby tools belong to the project's opam switch / Ruby environment.
 return {
   servers = {
+    dockerls = {
+      root_markers = { 'Dockerfile', 'Containerfile', '.git' },
+      settings = {
+        docker = { languageserver = { formatter = { ignoreMultilineInstructions = true } } },
+      },
+    },
+    make_ls = {
+      cmd = function(dispatchers, config)
+        local plugin = require('lazy.core.config').plugins['make-ls']
+        return vim.lsp.rpc.start({ plugin.dir .. '/make-ls' }, dispatchers, { cwd = config.root_dir })
+      end,
+      filetypes = { 'make' },
+      root_dir = function(bufnr, on_dir)
+        local filename = vim.api.nvim_buf_get_name(bufnr)
+        on_dir(vim.fs.root(bufnr, { 'Makefile', 'makefile', 'GNUmakefile', '.git' }) or vim.fs.dirname(filename))
+      end,
+    },
+    yamlls = {
+      settings = {
+        yaml = {
+          schemas = {
+            ['https://taskfile.dev/schema.json'] = {
+              '**/[Tt]askfile*.yml',
+              '**/[Tt]askfile*.yaml',
+              '**/Taskfile',
+              '**/taskfile',
+            },
+          },
+        },
+      },
+    },
     gopls = {},
     clangd = {},
     pyright = {},
@@ -20,6 +51,9 @@ return {
     lua_ls = { settings = { Lua = { completion = { callSnippet = 'Replace' } } } },
   },
   mason_tools = {
+    'dockerfile-language-server',
+    'hadolint',
+    'yaml-language-server',
     'gopls',
     'goimports',
     'clangd',
@@ -73,6 +107,10 @@ return {
     css = { 'prettier' },
     lua = { 'stylua' },
   },
+  linters = {
+    markdown = { 'markdownlint' },
+    dockerfile = { 'hadolint' },
+  },
   parsers = {
     'bash',
     'c',
@@ -80,6 +118,7 @@ return {
     'c_sharp',
     'css',
     'diff',
+    'dockerfile',
     'elixir',
     'embedded_template',
     'go',
@@ -91,6 +130,7 @@ return {
     'json',
     'lua',
     'luadoc',
+    'make',
     'markdown',
     'markdown_inline',
     'ocaml',

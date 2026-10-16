@@ -6,7 +6,7 @@ return {
     {
       '<leader>f',
       function()
-        require('conform').format { async = true, lsp_format = 'fallback' }
+        require('conform').format { async = true, lsp_format = vim.bo.filetype == 'make' and 'never' or 'fallback' }
       end,
       mode = '',
       desc = '[F]ormat buffer',
@@ -24,11 +24,17 @@ return {
       if vim.b[bufnr].disable_autoformat or vim.g.disable_autoformat then
         return
       end
+      if vim.bo[bufnr].filetype == 'make' then
+        return
+      end
       return { timeout_ms = 3000, lsp_format = 'fallback' }
     end,
     formatters_by_ft = require('custom.languages').formatters,
     formatters = {
-      prettier = { prepend_args = { '--prose-wrap', 'preserve' } },
+      prettier = {
+        prepend_args = { '--prose-wrap', 'preserve' },
+        options = { ft_parsers = { yaml = 'yaml' } },
+      },
     },
   },
 }
