@@ -134,7 +134,7 @@ vim.keymap.set('n', '<C-k>', '<C-w><C-k>', { desc = 'Move focus to the upper win
 vim.keymap.set('n', '<leader>cs', ':Telescope colorscheme<CR>', { desc = 'Change colorscheme' })
 vim.keymap.set('n', '<leader>w', ':w<CR>', { desc = 'Save changes' })
 vim.keymap.set('n', '<leader>q', ':q<CR>', { desc = 'Exit file' })
-vim.keymap.set('n', '<leader>qa', ':q<CR>', { desc = 'Exit all file' })
+vim.keymap.set('n', '<leader>qa', ':qa<CR>', { desc = 'Exit all files' })
 vim.keymap.set('n', 'gb', '<C-o>', { desc = 'Jump Back' })
 vim.keymap.set('n', 'gf', '<C-i>', { desc = 'Jump Forward' })
 
@@ -329,6 +329,7 @@ require('lazy').setup({
       spec = {
         { '<leader>s', group = '[S]earch' },
         { '<leader>d', group = '[D]iagnostics' },
+        { '<leader>a', group = 'AI/Claude Code' },
         { '<leader>9', group = 'AI (99)', mode = { 'n', 'x' } },
         { '<leader>t', group = '[T]oggle' },
         { '<leader>h', group = 'Git [H]unk', mode = { 'n', 'v' } },

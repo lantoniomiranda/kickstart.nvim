@@ -3,8 +3,18 @@ return {
   dependencies = { 'folke/snacks.nvim' },
   config = true,
   keys = {
-    { '<leader>a', nil, desc = 'AI/Claude Code' },
-    { '<leader>ac', '<cmd>ClaudeCode<cr>', desc = 'Toggle Claude' },
+    {
+      '<leader>ac',
+      function()
+        -- The Claude terminal stays in terminal mode, so <leader>ac would otherwise be typed into the prompt.
+        if vim.fn.mode() == 't' then
+          vim.cmd.stopinsert()
+        end
+        vim.cmd.ClaudeCode()
+      end,
+      mode = { 'n', 't' },
+      desc = 'Toggle Claude',
+    },
     { '<leader>af', '<cmd>ClaudeCodeFocus<cr>', desc = 'Focus Claude' },
     { '<leader>ar', '<cmd>ClaudeCode --resume<cr>', desc = 'Resume Claude' },
     { '<leader>aC', '<cmd>ClaudeCode --continue<cr>', desc = 'Continue Claude' },
