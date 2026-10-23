@@ -89,6 +89,7 @@ return {
     'yaml-language-server',
     'gopls',
     'goimports',
+    'golines',
     'clangd',
     'clang-format',
     'pyright',
@@ -118,7 +119,8 @@ return {
     'ols', -- Also installs odinfmt.
   },
   formatters = {
-    go = { 'goimports', 'gofmt' },
+    -- golines splits lines over 100 columns. A long composite literal becomes one field per line.
+    go = { 'goimports', 'golines' },
     c = { 'clang_format' },
     cpp = { 'clang_format' },
     python = { 'ruff_organize_imports', 'ruff_format' },

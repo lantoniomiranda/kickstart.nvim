@@ -115,21 +115,20 @@ vim.keymap.set('n', '<right>', '<cmd>echo "Use l to move!!"<CR>')
 vim.keymap.set('n', '<up>', '<cmd>echo "Use k to move!!"<CR>')
 vim.keymap.set('n', '<down>', '<cmd>echo "Use j to move!!"<CR>')
 
--- Keybinds to make split navigation easier.
---  Use CTRL+<hjkl> to switch between windows
---
---  See `:help wincmd` for a list of all window commands
-vim.keymap.set('n', '<C-h>', '<C-w><C-h>', { desc = 'Move focus to the left window' })
-vim.keymap.set('n', '<C-l>', '<C-w><C-l>', { desc = 'Move focus to the right window' })
-vim.keymap.set('n', '<C-j>', '<C-w><C-j>', { desc = 'Move focus to the lower window' })
-vim.keymap.set('n', '<C-k>', '<C-w><C-k>', { desc = 'Move focus to the upper window' })
+-- Move between the floating cards. <C-w>h would land on the canvas behind them.
+vim.keymap.set('n', '<C-h>', function()
+  require('custom.panels').focus 'h'
+end, { desc = 'Move focus to the left window' })
+vim.keymap.set('n', '<C-l>', function()
+  require('custom.panels').focus 'l'
+end, { desc = 'Move focus to the right window' })
+vim.keymap.set('n', '<C-j>', function()
+  require('custom.panels').focus 'j'
+end, { desc = 'Move focus to the lower window' })
+vim.keymap.set('n', '<C-k>', function()
+  require('custom.panels').focus 'k'
+end, { desc = 'Move focus to the upper window' })
 
--- NOTE: Some terminals have colliding keymaps or are not able to send distinct keycodes
--- vim.keymap.set("n", "<C-S-h>", "<C-w>H", { desc = "Move window to the left" })
--- vim.keymap.set("n", "<C-S-l>", "<C-w>L", { desc = "Move window to the right" })
--- vim.keymap.set("n", "<C-S-j>", "<C-w>J", { desc = "Move window to the lower" })
--- vim.keymap.set("n", "<C-S-k>", "<C-w>K", { desc = "Move window to the upper" })
---
 -- Custom mappings
 vim.keymap.set('n', '<leader>cs', ':Telescope colorscheme<CR>', { desc = 'Change colorscheme' })
 vim.keymap.set('n', '<leader>w', ':w<CR>', { desc = 'Save changes' })
@@ -329,8 +328,7 @@ require('lazy').setup({
       spec = {
         { '<leader>s', group = '[S]earch' },
         { '<leader>d', group = '[D]iagnostics' },
-        { '<leader>a', group = 'AI/Claude Code' },
-        { '<leader>9', group = 'AI (99)', mode = { 'n', 'x' } },
+        { '<leader>i', group = 'AI' },
         { '<leader>t', group = '[T]oggle' },
         { '<leader>h', group = 'Git [H]unk', mode = { 'n', 'v' } },
       },
@@ -484,8 +482,12 @@ require('lazy').setup({
       ---@diagnostic disable-next-line: missing-fields
       require('tokyonight').setup {
         styles = {
-          comments = { italic = false }, -- Disable italics in comments
+          comments = { italic = false },
+          keywords = { italic = false },
+          sidebars = 'dark',
+          floats = 'normal',
         },
+        dim_inactive = false,
       }
 
       -- Load the colorscheme here.
@@ -534,7 +536,31 @@ require('lazy').setup({
       --  and try some other statusline plugin
       local statusline = require 'mini.statusline'
       -- set use_icons to true if you have a Nerd Font
-      statusline.setup { use_icons = vim.g.have_nerd_font }
+      local function statusline_active()
+        local diagnostics = statusline.section_diagnostics { trunc_width = 75 }
+        local filename = statusline.section_filename { trunc_width = 140 }
+        local location = statusline.section_location { trunc_width = 75 }
+        local search = statusline.section_searchcount { trunc_width = 75 }
+
+        return statusline.combine_groups {
+          { hl = 'MiniStatuslineDevinfo', strings = { diagnostics } },
+          '%<',
+          { hl = 'MiniStatuslineFilename', strings = { filename } },
+          '%=',
+          { hl = 'MiniStatuslineDevinfo', strings = { search } },
+          { hl = 'MiniStatuslineFilename', strings = { location } },
+        }
+      end
+
+      statusline.setup {
+        use_icons = vim.g.have_nerd_font,
+        content = {
+          active = statusline_active,
+          inactive = function()
+            return '%#MiniStatuslineInactive# ' .. require('custom.panels').repo_path() .. '%='
+          end,
+        },
+      }
 
       -- You can configure sections in the statusline by overriding their
       -- default behavior. For example, here we set the section for
@@ -542,6 +568,18 @@ require('lazy').setup({
       ---@diagnostic disable-next-line: duplicate-set-field
       statusline.section_location = function()
         return '%2l:%-2v'
+      end
+
+      ---@diagnostic disable-next-line: duplicate-set-field
+      statusline.section_filename = function(args)
+        if args and statusline.is_truncated(args.trunc_width) then
+          local tail = vim.fn.expand '%:t'
+          if tail == '' then
+            return '[No Name]'
+          end
+          return tail
+        end
+        return require('custom.panels').repo_path()
       end
 
       -- ... and there is more!
@@ -593,6 +631,8 @@ require('lazy').setup({
     },
   },
 })
+
+require('custom.panels').setup()
 
 -- The line beneath this is called `modeline`. See `:help modeline`
 -- vim: ts=2 sts=2 sw=2 et

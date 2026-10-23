@@ -10,7 +10,7 @@ function M.check()
       'Install Make and Go; run :Lazy build make-ls for its language server.',
     },
     { 'Taskfiles', { 'task', 'yaml-language-server', 'prettier' }, 'Install Task and Node/npm; run :MasonToolsInstall for editor tools.' },
-    { 'Go', { 'go', 'gopls', 'goimports' }, 'Install Go; run :MasonToolsInstall for editor tools.' },
+    { 'Go', { 'go', 'gopls', 'goimports', 'golines' }, 'Install Go; run :MasonToolsInstall for editor tools.' },
     { 'C/C++', { 'clangd', 'clang-format' }, 'Run :MasonToolsInstall; supply compile_commands.json for your project.' },
     { 'Python', { 'python3', 'pyright-langserver', 'ruff' }, 'Install Python; run :MasonToolsInstall and activate the project virtual environment.' },
     { 'JavaScript/TypeScript', { 'node', 'typescript-language-server', 'prettier' }, 'Install Node/npm; run :MasonToolsInstall.' },

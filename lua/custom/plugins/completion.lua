@@ -12,7 +12,6 @@ return {
         end
         return 'make install_jsregexp'
       end)(),
-      dependencies = {},
       opts = {},
     },
     'folke/lazydev.nvim',
@@ -32,10 +31,8 @@ return {
 
     sources = {
       default = { 'lsp', 'path', 'snippets', 'lazydev' },
-      per_filetype = { ['99prompt'] = { 'ai99' } },
       providers = {
         lazydev = { module = 'lazydev.integrations.blink', score_offset = 100 },
-        ai99 = { name = '99', module = 'blink.compat.source' },
       },
     },
 
