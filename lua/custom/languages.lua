@@ -33,6 +33,7 @@ return {
         },
       },
     },
+    taplo = {},
     gopls = {},
     clangd = {},
     pyright = {},
@@ -72,6 +73,8 @@ return {
     ruby_lsp = {
       -- lspconfig starts this server with a cmd function, so a missing `ruby-lsp`
       -- skips Neovim's executable check and errors on every Ruby buffer.
+      -- eruby covers Rails views such as app/views/*/*.html.erb.
+      filetypes = { 'ruby', 'eruby' },
       root_dir = function(bufnr, on_dir)
         if vim.fn.executable 'ruby-lsp' == 0 then
           return
@@ -87,6 +90,7 @@ return {
     'dockerfile-language-server',
     'hadolint',
     'yaml-language-server',
+    'taplo',
     'gopls',
     'goimports',
     'golines',
@@ -135,11 +139,14 @@ return {
     ocaml = { 'ocamlformat' },
     ocamlinterface = { 'ocamlformat' },
     ruby = { 'rubocop' },
+    -- erb-formatter gem. Used for Rails .erb views.
+    eruby = { 'erb_format' },
     odin = { 'odinfmt' },
     markdown = { 'prettier' },
     json = { 'prettier' },
     jsonc = { 'prettier' },
     yaml = { 'prettier' },
+    toml = { 'taplo' },
     html = { 'prettier' },
     css = { 'prettier' },
     lua = { 'stylua' },
@@ -177,6 +184,7 @@ return {
     'query',
     'ruby',
     'sql',
+    'toml',
     'tsx',
     'typescript',
     'vim',

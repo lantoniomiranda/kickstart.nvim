@@ -9,7 +9,7 @@ return {
     treesitter.setup { install_dir = vim.fn.stdpath 'data' .. '/site' }
 
     vim.filetype.add {
-      extension = { psql = 'sql', pgsql = 'sql' },
+      extension = { psql = 'sql', pgsql = 'sql', jbuilder = 'ruby' },
       filename = { Taskfile = 'yaml', taskfile = 'yaml' },
     }
     -- PostgreSQL fence labels and filetypes share the SQL grammar and queries.
@@ -23,7 +23,7 @@ return {
         return
       end
       vim.treesitter.start(bufnr, language)
-      if filetype ~= 'markdown' and filetype ~= 'ruby' and filetype ~= 'make' then
+      if filetype ~= 'markdown' and filetype ~= 'ruby' and filetype ~= 'eruby' and filetype ~= 'make' then
         vim.bo[bufnr].indentexpr = "v:lua.require'nvim-treesitter'.indentexpr()"
       end
       if filetype == 'ruby' then
