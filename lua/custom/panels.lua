@@ -146,27 +146,122 @@ function M.geometry(opts)
   }
 end
 
----Path from the repository root. The statusline uses this instead of the absolute path.
-function M.repo_path()
-  if vim.bo.buftype == 'terminal' then
-    return vim.fn.expand '%:t'
+local function buffer_flags(buf)
+  local bo = vim.bo[buf]
+  local flags = ''
+  if bo.modified then
+    flags = flags .. ' [+]'
+  end
+  if bo.readonly then
+    flags = flags .. ' [RO]'
+  end
+  return flags
+end
+
+---Path from the repository root for one buffer, without the modified mark.
+local function buffer_path(buf)
+  local bo = vim.bo[buf]
+  if bo.buftype == 'terminal' then
+    local name = vim.api.nvim_buf_get_name(buf)
+    if name == '' then
+      return 'Terminal'
+    end
+    return vim.fn.fnamemodify(name, ':t')
   end
 
-  local name = vim.api.nvim_buf_get_name(0)
+  local name = vim.api.nvim_buf_get_name(buf)
   if name == '' then
     return '[No Name]'
   end
 
   local root = vim.fs.root(name, { '.git', '.hg' })
   local relative = root and vim.fs.relpath(root, name) or nil
-  relative = relative or vim.fn.fnamemodify(name, ':t')
-  if vim.bo.modified then
-    relative = relative .. ' [+]'
+  return relative or vim.fn.fnamemodify(name, ':t')
+end
+
+---Path from the repository root for one buffer.
+local function buffer_label(buf)
+  if vim.bo[buf].buftype == 'terminal' then
+    return buffer_path(buf)
   end
-  if vim.bo.readonly then
-    relative = relative .. ' [RO]'
+  return buffer_path(buf) .. buffer_flags(buf)
+end
+
+---Path from the repository root. The statusline uses this instead of the absolute path.
+function M.repo_path(bufnr)
+  local buf = bufnr
+  if not buf or buf == 0 then
+    buf = vim.api.nvim_get_current_buf()
   end
-  return (relative:gsub('%%', '%%%%'))
+  return (buffer_label(buf):gsub('%%', '%%%%'))
+end
+
+---Keep the end of a label. A long path would hide the file name.
+local function display_tail(text, width)
+  if width < 1 then
+    return ''
+  end
+  if vim.fn.strdisplaywidth(text) <= width then
+    return text
+  end
+  local mark = '…'
+  local budget = width - vim.fn.strdisplaywidth(mark)
+  if budget < 1 then
+    return vim.fn.strcharpart(mark, 0, width)
+  end
+  local count = vim.fn.strchars(text)
+  local best = count
+  for index = count, 0, -1 do
+    if vim.fn.strdisplaywidth(vim.fn.strcharpart(text, index)) > budget then
+      break
+    end
+    best = index
+  end
+  return mark .. vim.fn.strcharpart(text, best)
+end
+
+---Shorten a repo path from the left so the file name stays on the border.
+local function fit_path(label, width)
+  if width < 1 then
+    return ''
+  end
+  if vim.fn.strdisplaywidth(label) <= width then
+    return label
+  end
+  local parts = vim.split(label, '/', { plain = true, trimempty = true })
+  local file = parts[#parts] or label
+  if vim.fn.strdisplaywidth(file) > width then
+    return display_tail(file, width)
+  end
+  local chosen = { file }
+  for index = #parts - 1, 1, -1 do
+    table.insert(chosen, 1, parts[index])
+    if vim.fn.strdisplaywidth('…/' .. table.concat(chosen, '/')) > width then
+      table.remove(chosen, 1)
+      break
+    end
+  end
+  if #chosen == 1 then
+    return file
+  end
+  return '…/' .. table.concat(chosen, '/')
+end
+
+---Border title for one code card, in the same place as the Explorer label.
+local function editor_title(win, width)
+  local buf = vim.api.nvim_win_get_buf(win)
+  local path = buffer_path(buf)
+  local flags = vim.bo[buf].buftype == 'terminal' and '' or buffer_flags(buf)
+  local limit = math.max(1, (width or 8) - 2)
+  local inner = limit < 3 and limit or (limit - 2)
+  local body = fit_path(path, inner)
+  if flags ~= '' and vim.fn.strdisplaywidth(body .. flags) <= inner then
+    body = body .. flags
+  end
+  if limit < 3 then
+    return body
+  end
+  return ' ' .. body .. ' '
 end
 
 ---A small step away from the editor color, for themes other than Tokyo Night.
@@ -455,6 +550,19 @@ function M.refresh_mode()
   end
 end
 
+---Each code card shows the repo path of the file in that window.
+function M.refresh_titles()
+  for _, win in ipairs(editor_windows()) do
+    if vim.api.nvim_win_is_valid(win) and vim.api.nvim_win_get_config(win).relative ~= '' then
+      local cfg = vim.api.nvim_win_get_config(win)
+      local title = editor_title(win, cfg.width)
+      if title_text(cfg.title) ~= title or cfg.title_pos ~= 'center' then
+        pcall(vim.api.nvim_win_set_config, win, { title = title, title_pos = 'center' })
+      end
+    end
+  end
+end
+
 local function place_editors(region)
   local editors = editor_windows()
   if #editors == 0 or not region then
@@ -471,7 +579,12 @@ local function place_editors(region)
       col = col,
       width = width,
       height = region.height,
-    }, { footer = M.mode_footer(), footer_pos = 'left' })
+    }, {
+      title = editor_title(win, width),
+      title_pos = 'center',
+      footer = M.mode_footer(),
+      footer_pos = 'left',
+    })
     style_editor(win)
     col = col + width + 3
   end
@@ -517,6 +630,7 @@ function M.relayout()
   end
   place_overlays(g.editor)
   placing = false
+  M.refresh_titles()
   M.refresh_mode()
   M.paint_focus()
 end
@@ -529,6 +643,20 @@ local function queue_relayout()
   vim.schedule(function()
     place_queued = false
     M.relayout()
+  end)
+end
+
+local titles_queued = false
+local function queue_titles()
+  if titles_queued or not ready then
+    return
+  end
+  titles_queued = true
+  vim.schedule(function()
+    titles_queued = false
+    if ready then
+      M.refresh_titles()
+    end
   end)
 end
 
@@ -884,6 +1012,12 @@ function M.setup()
       if ready then
         M.refresh_mode()
       end
+    end,
+  })
+  vim.api.nvim_create_autocmd({ 'BufEnter', 'BufFilePost', 'BufModifiedSet', 'BufWritePost' }, {
+    group = group,
+    callback = function()
+      queue_titles()
     end,
   })
   vim.api.nvim_create_autocmd('WinClosed', {
