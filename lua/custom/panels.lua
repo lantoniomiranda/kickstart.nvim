@@ -438,13 +438,18 @@ local function title_text(title)
   if type(title) ~= 'table' then
     return nil
   end
-  local chunk = title[1]
-  if type(chunk) == 'table' then
-    return chunk[1]
+  local parts = {}
+  for _, chunk in ipairs(title) do
+    if type(chunk) == 'table' then
+      parts[#parts + 1] = chunk[1]
+    elseif type(chunk) == 'string' then
+      parts[#parts + 1] = chunk
+    end
   end
-  if type(chunk) == 'string' then
-    return chunk
+  if #parts == 0 then
+    return nil
   end
+  return table.concat(parts)
 end
 
 local function apply_box(win, box, extra)
@@ -533,16 +538,50 @@ local mode_groups = {
   Select = 'PanelModeSelect',
 }
 
-function M.mode_footer()
+---0% on the first line and 100% on the last. A one-line buffer is the whole page.
+local function page_percent(win)
+  if not win or not vim.api.nvim_win_is_valid(win) then
+    return 0
+  end
+  local line_count = vim.api.nvim_buf_line_count(vim.api.nvim_win_get_buf(win))
+  if line_count < 1 then
+    return 0
+  end
+  local line = vim.api.nvim_win_get_cursor(win)[1]
+  if line >= line_count then
+    return 100
+  end
+  return math.floor(line * 100 / line_count)
+end
+
+---Mode on the lower left of a code card, and the file position on the lower right.
+function M.mode_footer(win, width)
   local label = M.mode_label()
-  return { { ' ' .. label .. ' ', mode_groups[label] or 'PanelModeNormal' } }
+  local group = mode_groups[label] or 'PanelModeNormal'
+  local left = ' ' .. label .. ' '
+  if not width and win and vim.api.nvim_win_is_valid(win) then
+    width = vim.api.nvim_win_get_config(win).width
+  end
+  local right = ' ' .. string.format('%3d%%', page_percent(win)) .. ' '
+  local left_cells = vim.fn.strdisplaywidth(left)
+  local right_cells = vim.fn.strdisplaywidth(right)
+  if not width or left_cells + right_cells > width then
+    return { { left, group } }
+  end
+  local gap = width - left_cells - right_cells
+  local chunks = { { left, group } }
+  if gap > 0 then
+    chunks[#chunks + 1] = { string.rep('─', gap), 'FloatBorder' }
+  end
+  chunks[#chunks + 1] = { right, 'FloatFooter' }
+  return chunks
 end
 
 function M.refresh_mode()
-  local footer = M.mode_footer()
   for _, win in ipairs(editor_windows()) do
     if vim.api.nvim_win_is_valid(win) and vim.api.nvim_win_get_config(win).relative ~= '' then
       local cfg = vim.api.nvim_win_get_config(win)
+      local footer = M.mode_footer(win, cfg.width)
       if title_text(cfg.footer) ~= title_text(footer) or cfg.footer_pos ~= 'left' then
         pcall(vim.api.nvim_win_set_config, win, { footer = footer, footer_pos = 'left' })
       end
@@ -582,7 +621,7 @@ local function place_editors(region)
     }, {
       title = editor_title(win, width),
       title_pos = 'center',
-      footer = M.mode_footer(),
+      footer = M.mode_footer(win, width),
       footer_pos = 'left',
     })
     style_editor(win)
@@ -1006,7 +1045,7 @@ function M.setup()
       queue_relayout()
     end,
   })
-  vim.api.nvim_create_autocmd('ModeChanged', {
+  vim.api.nvim_create_autocmd({ 'ModeChanged', 'CursorMoved', 'CursorMovedI' }, {
     group = group,
     callback = function()
       if ready then
