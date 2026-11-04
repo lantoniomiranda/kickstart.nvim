@@ -137,6 +137,91 @@ vim.keymap.set('n', '<leader>qa', ':qa<CR>', { desc = 'Exit all files' })
 vim.keymap.set('n', 'gb', '<C-o>', { desc = 'Jump Back' })
 vim.keymap.set('n', 'gf', '<C-i>', { desc = 'Jump Forward' })
 
+-- Paths are relative to the current working directory, same as :pwd.
+local function resolve_new_path(raw)
+  if type(raw) ~= 'string' then
+    return nil
+  end
+  local path = vim.trim(raw)
+  if path == '' then
+    return nil
+  end
+  return vim.fs.normalize(vim.fs.abspath(vim.fs.normalize(path)))
+end
+
+local function path_for_display(path)
+  local cwd = vim.fs.normalize(vim.uv.cwd() or '')
+  local prefix = cwd .. '/'
+  if cwd ~= '' and vim.startswith(path, prefix) then
+    return path:sub(#prefix + 1)
+  end
+  return path
+end
+
+local function open_created_file(path)
+  vim.schedule(function()
+    local opened = require('custom.panels').open_in_editor(path)
+    if not opened then
+      vim.cmd.edit(vim.fn.fnameescape(path))
+    end
+  end)
+end
+
+-- <leader>nf creates an empty file, like touch, then opens it.
+local function new_file()
+  vim.ui.input({ prompt = 'New file: ', completion = 'file' }, function(raw)
+    local path = resolve_new_path(raw)
+    if not path then
+      return
+    end
+    local shown = path_for_display(path)
+    local parent = vim.fn.fnamemodify(path, ':h')
+    if vim.fn.isdirectory(parent) ~= 1 then
+      vim.notify('Directory does not exist: ' .. path_for_display(parent), vim.log.levels.ERROR)
+      return
+    end
+    if vim.fn.isdirectory(path) == 1 then
+      vim.notify('That path is a directory: ' .. shown, vim.log.levels.ERROR)
+      return
+    end
+
+    local existed = vim.fn.filereadable(path) == 1
+    if not existed and vim.fn.writefile({}, path) ~= 0 then
+      vim.notify('Could not create file: ' .. shown, vim.log.levels.ERROR)
+      return
+    end
+
+    open_created_file(path)
+    vim.notify(existed and ('Opened ' .. shown) or ('Created ' .. shown))
+  end)
+end
+
+-- <leader>nd creates a directory and any missing parents, like mkdir -p.
+local function new_directory()
+  vim.ui.input({ prompt = 'New directory: ', completion = 'dir' }, function(raw)
+    local path = resolve_new_path(raw)
+    if not path then
+      return
+    end
+    local shown = path_for_display(path)
+    if vim.fn.filereadable(path) == 1 and vim.fn.isdirectory(path) ~= 1 then
+      vim.notify('That path is a file: ' .. shown, vim.log.levels.ERROR)
+      return
+    end
+
+    local existed = vim.fn.isdirectory(path) == 1
+    if not existed and vim.fn.mkdir(path, 'p') ~= 1 then
+      vim.notify('Could not create directory: ' .. shown, vim.log.levels.ERROR)
+      return
+    end
+
+    vim.notify(existed and ('Directory already exists: ' .. shown) or ('Created directory: ' .. shown))
+  end)
+end
+
+vim.keymap.set('n', '<leader>nf', new_file, { desc = '[N]ew [F]ile' })
+vim.keymap.set('n', '<leader>nd', new_directory, { desc = '[N]ew [D]irectory' })
+
 -- Quick theme switching for bright/dim environments
 local function set_cursor_contrast(mode)
   if mode == 'light' then
@@ -327,6 +412,7 @@ require('lazy').setup({
       -- Document existing key chains
       spec = {
         { '<leader>s', group = '[S]earch' },
+        { '<leader>n', group = '[N]ew' },
         { '<leader>d', group = '[D]iagnostics' },
         { '<leader>i', group = 'AI' },
         { '<leader>t', group = '[T]oggle' },
