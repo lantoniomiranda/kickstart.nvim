@@ -12,6 +12,8 @@ local last_editor
 local ready = false
 local placing = false
 local place_queued = false
+local layouts = {}
+local card_gap = 3
 
 local function role_of(win)
   if not win or not vim.api.nvim_win_is_valid(win) then
@@ -89,7 +91,8 @@ function M.geometry(opts)
   local tab = (vim.o.showtabline == 2 or (vim.o.showtabline == 1 and #vim.api.nvim_list_tabpages() > 1)) and 1 or 0
   local bottom = vim.o.cmdheight + ((vim.o.laststatus == 0) and 0 or 1)
   local row = tab
-  local height = math.max(5, vim.o.lines - bottom - row - 1)
+  -- Both borders sit outside `height`. `cmdheight` is 0, so the bottom border uses the last row.
+  local height = math.max(5, vim.o.lines - bottom - row - 2)
   local columns = vim.o.columns
   local left_open = opts.left or left_window() ~= nil
   local right_open = opts.right or right_window() ~= nil
@@ -177,23 +180,6 @@ local function buffer_path(buf)
   local root = vim.fs.root(name, { '.git', '.hg' })
   local relative = root and vim.fs.relpath(root, name) or nil
   return relative or vim.fn.fnamemodify(name, ':t')
-end
-
----Path from the repository root for one buffer.
-local function buffer_label(buf)
-  if vim.bo[buf].buftype == 'terminal' then
-    return buffer_path(buf)
-  end
-  return buffer_path(buf) .. buffer_flags(buf)
-end
-
----Path from the repository root. The statusline uses this instead of the absolute path.
-function M.repo_path(bufnr)
-  local buf = bufnr
-  if not buf or buf == 0 then
-    buf = vim.api.nvim_get_current_buf()
-  end
-  return (buffer_label(buf):gsub('%%', '%%%%'))
 end
 
 ---Keep the end of a label. A long path would hide the file name.
@@ -452,11 +438,36 @@ local function title_text(title)
   return table.concat(parts)
 end
 
+local editor_border = { '╭', '─', '╮', '│', '╯', '─', '╰', '│' }
+
+local function border_char(item)
+  if type(item) == 'table' then
+    return item[1]
+  end
+  return item
+end
+
+local function border_matches(current, wanted)
+  if type(wanted) == 'string' then
+    return current == wanted
+  end
+  if type(current) ~= 'table' then
+    return false
+  end
+  for index, char in ipairs(wanted) do
+    if border_char(current[index]) ~= char then
+      return false
+    end
+  end
+  return true
+end
+
 local function apply_box(win, box, extra)
   if not win or not box or not vim.api.nvim_win_is_valid(win) then
     return
   end
   local cfg = vim.api.nvim_win_get_config(win)
+  local wanted_border = (extra and extra.border) or 'rounded'
   local same = cfg.relative == 'editor'
     and config_number(cfg.row) == box.row
     and config_number(cfg.col) == box.col
@@ -466,7 +477,8 @@ local function apply_box(win, box, extra)
   local title_pos_same = not extra or extra.title_pos == nil or cfg.title_pos == extra.title_pos
   local footer_same = not extra or extra.footer == nil or title_text(cfg.footer) == title_text(extra.footer)
   local footer_pos_same = not extra or extra.footer_pos == nil or cfg.footer_pos == extra.footer_pos
-  if same and title_same and title_pos_same and footer_same and footer_pos_same then
+  local border_same = border_matches(cfg.border, wanted_border)
+  if same and title_same and title_pos_same and footer_same and footer_pos_same and border_same then
     return
   end
   local next_config = {
@@ -475,7 +487,7 @@ local function apply_box(win, box, extra)
     col = box.col,
     width = box.width,
     height = box.height,
-    border = 'rounded',
+    border = wanted_border,
   }
   if extra then
     next_config = vim.tbl_extend('force', next_config, extra)
@@ -490,7 +502,7 @@ local function open_float(buf, box, zindex)
     col = box.col,
     width = box.width,
     height = box.height,
-    border = 'rounded',
+    border = editor_border,
     zindex = zindex or 20,
     focusable = true,
   })
@@ -554,7 +566,22 @@ local function page_percent(win)
   return math.floor(line * 100 / line_count)
 end
 
----Mode on the lower left of a code card, and the file position on the lower right.
+---Line and screen column, the same pair the statusline used to show.
+local function cursor_position(win)
+  if not win or not vim.api.nvim_win_is_valid(win) then
+    return '0:0'
+  end
+  local line = vim.api.nvim_win_get_cursor(win)[1]
+  local ok, col = pcall(vim.api.nvim_win_call, win, function()
+    return vim.fn.virtcol '.'
+  end)
+  if not ok then
+    col = vim.api.nvim_win_get_cursor(win)[2] + 1
+  end
+  return string.format('%d:%d', line, col)
+end
+
+---Mode on the lower left of a code card. Percent and cursor position share the lower right.
 function M.mode_footer(win, width)
   local label = M.mode_label()
   local group = mode_groups[label] or 'PanelModeNormal'
@@ -562,9 +589,14 @@ function M.mode_footer(win, width)
   if not width and win and vim.api.nvim_win_is_valid(win) then
     width = vim.api.nvim_win_get_config(win).width
   end
-  local right = ' ' .. string.format('%3d%%', page_percent(win)) .. ' '
+  local percent = string.format('%3d%%', page_percent(win))
+  local right = ' ' .. percent .. '  ' .. cursor_position(win) .. ' '
   local left_cells = vim.fn.strdisplaywidth(left)
   local right_cells = vim.fn.strdisplaywidth(right)
+  if not width or left_cells + right_cells > width then
+    right = ' ' .. percent .. ' '
+    right_cells = vim.fn.strdisplaywidth(right)
+  end
   if not width or left_cells + right_cells > width then
     return { { left, group } }
   end
@@ -602,31 +634,200 @@ function M.refresh_titles()
   end
 end
 
+local function walk_leaves(node, visit)
+  if not node then
+    return
+  end
+  if node.kind == 'leaf' then
+    visit(node)
+    return
+  end
+  for _, child in ipairs(node.children) do
+    walk_leaves(child, visit)
+  end
+end
+
+local function prune_layout(node)
+  if not node then
+    return nil
+  end
+  if node.kind == 'leaf' then
+    if node.win and vim.api.nvim_win_is_valid(node.win) and role_of(node.win) == editor_role then
+      return node
+    end
+    return nil
+  end
+  local children = {}
+  for _, child in ipairs(node.children) do
+    local kept = prune_layout(child)
+    if kept then
+      children[#children + 1] = kept
+    end
+  end
+  if #children == 0 then
+    return nil
+  end
+  if #children == 1 then
+    return children[1]
+  end
+  node.children = children
+  return node
+end
+
+---Remember where each editor card sits. A row is a vertical split. A column is a horizontal split.
+local function sync_layout(editors)
+  local tab = vim.api.nvim_get_current_tabpage()
+  local root = prune_layout(layouts[tab])
+  local seen = {}
+  walk_leaves(root, function(leaf)
+    seen[leaf.win] = true
+  end)
+  local missing = {}
+  for _, win in ipairs(editors) do
+    if not seen[win] then
+      missing[#missing + 1] = { kind = 'leaf', win = win }
+    end
+  end
+  if not root then
+    if #missing == 1 then
+      root = missing[1]
+    elseif #missing > 1 then
+      root = { kind = 'row', children = missing }
+    end
+  elseif #missing > 0 then
+    if root.kind == 'row' then
+      for _, leaf in ipairs(missing) do
+        root.children[#root.children + 1] = leaf
+      end
+    else
+      local children = { root }
+      for _, leaf in ipairs(missing) do
+        children[#children + 1] = leaf
+      end
+      root = { kind = 'row', children = children }
+    end
+  end
+  layouts[tab] = root
+  return root
+end
+
+local function find_leaf(node, win, parent)
+  if not node then
+    return nil, nil
+  end
+  if node.kind == 'leaf' then
+    if node.win == win then
+      return parent, node
+    end
+    return nil, nil
+  end
+  for _, child in ipairs(node.children) do
+    local found_parent, leaf = find_leaf(child, win, node)
+    if leaf then
+      return found_parent, leaf
+    end
+  end
+  return nil, nil
+end
+
+local function insert_split(win, kind, new_win)
+  local tab = vim.api.nvim_get_current_tabpage()
+  local root = layouts[tab]
+  local new_leaf = { kind = 'leaf', win = new_win }
+  if not root then
+    layouts[tab] = { kind = kind, children = { { kind = 'leaf', win = win }, new_leaf } }
+    return
+  end
+  local parent, leaf = find_leaf(root, win, nil)
+  if not leaf then
+    if root.kind == kind then
+      root.children[#root.children + 1] = new_leaf
+    else
+      layouts[tab] = { kind = kind, children = { root, new_leaf } }
+    end
+    return
+  end
+  if parent and parent.kind == kind then
+    for index, child in ipairs(parent.children) do
+      if child == leaf then
+        table.insert(parent.children, index + 1, new_leaf)
+        return
+      end
+    end
+  end
+  local wrapped = { kind = kind, children = { leaf, new_leaf } }
+  if not parent then
+    layouts[tab] = wrapped
+    return
+  end
+  for index, child in ipairs(parent.children) do
+    if child == leaf then
+      parent.children[index] = wrapped
+      return
+    end
+  end
+end
+
+local function place_node(node, box)
+  if not node or not box then
+    return
+  end
+  if node.kind == 'leaf' then
+    if not vim.api.nvim_win_is_valid(node.win) then
+      return
+    end
+    apply_box(node.win, box, {
+      border = editor_border,
+      title = editor_title(node.win, box.width),
+      title_pos = 'center',
+      footer = M.mode_footer(node.win, box.width),
+      footer_pos = 'left',
+    })
+    style_editor(node.win)
+    return
+  end
+  local count = #node.children
+  if count == 0 then
+    return
+  end
+  local gaps = count - 1
+  if node.kind == 'row' then
+    local inner = math.max(count, box.width - gaps * card_gap)
+    local each = math.max(1, math.floor(inner / count))
+    local col = box.col
+    for index, child in ipairs(node.children) do
+      local width = index == count and math.max(1, box.col + box.width - col) or each
+      place_node(child, {
+        row = box.row,
+        col = col,
+        width = width,
+        height = box.height,
+      })
+      col = col + width + card_gap
+    end
+    return
+  end
+  local inner = math.max(count, box.height - gaps * card_gap)
+  local each = math.max(1, math.floor(inner / count))
+  local row = box.row
+  for index, child in ipairs(node.children) do
+    local height = index == count and math.max(1, box.row + box.height - row) or each
+    place_node(child, {
+      row = row,
+      col = box.col,
+      width = box.width,
+      height = height,
+    })
+    row = row + height + card_gap
+  end
+end
+
 local function place_editors(region)
   local editors = editor_windows()
   if #editors == 0 or not region then
     return
   end
-  local gaps = #editors - 1
-  local inner = math.max(#editors, region.width - gaps * 3)
-  local each = math.max(8, math.floor(inner / #editors))
-  local col = region.col
-  for index, win in ipairs(editors) do
-    local width = index == #editors and math.max(8, region.col + region.width - col) or each
-    apply_box(win, {
-      row = region.row,
-      col = col,
-      width = width,
-      height = region.height,
-    }, {
-      title = editor_title(win, width),
-      title_pos = 'center',
-      footer = M.mode_footer(win, width),
-      footer_pos = 'left',
-    })
-    style_editor(win)
-    col = col + width + 3
-  end
+  place_node(sync_layout(editors), region)
 end
 
 local function place_overlays(region)
@@ -739,7 +940,7 @@ local function convert_window(win)
     return
   end
   local g = M.geometry()
-  apply_box(win, g.editor)
+  apply_box(win, g.editor, { border = editor_border })
   style_editor(win)
   last_editor = win
 end
@@ -784,6 +985,46 @@ function M.open_in_editor(path, opts)
   local ok = pcall(vim.cmd.edit, path)
   M.relayout()
   return ok
+end
+
+---Open the current file in a new card. `v` places it to the right. `h` places it below.
+---@param direction? 'v' | 'h'
+function M.split_editor(direction)
+  local kind = direction == 'h' and 'col' or 'row'
+  local current = vim.api.nvim_get_current_win()
+  local source
+  if role_of(current) == editor_role and vim.bo[vim.api.nvim_win_get_buf(current)].buftype ~= 'terminal' then
+    source = current
+  else
+    source = primary_editor()
+  end
+
+  local buf
+  if source and vim.api.nvim_win_is_valid(source) and vim.bo[vim.api.nvim_win_get_buf(source)].buftype == '' then
+    buf = vim.api.nvim_win_get_buf(source)
+  else
+    buf = vim.api.nvim_create_buf(true, false)
+  end
+
+  if source and vim.api.nvim_win_is_valid(source) then
+    sync_layout(editor_windows())
+  end
+
+  local g = M.geometry()
+  local win = open_float(buf, g.editor, 20)
+  if not win or not vim.api.nvim_win_is_valid(win) then
+    return
+  end
+  style_editor(win)
+  if source and vim.api.nvim_win_is_valid(source) and buf == vim.api.nvim_win_get_buf(source) then
+    pcall(vim.api.nvim_win_set_cursor, win, vim.api.nvim_win_get_cursor(source))
+  end
+  if source and vim.api.nvim_win_is_valid(source) then
+    insert_split(source, kind, win)
+  end
+  last_editor = win
+  vim.api.nvim_set_current_win(win)
+  M.relayout()
 end
 
 local function exiting()
@@ -933,6 +1174,7 @@ function M.apply()
   vim.api.nvim_set_hl(0, 'FloatBorder', { fg = border, bg = canvas_bg })
   vim.api.nvim_set_hl(0, 'FloatTitle', { fg = text, bg = canvas_bg })
   vim.api.nvim_set_hl(0, 'FloatFooter', { fg = text, bg = canvas_bg })
+  vim.api.nvim_set_hl(0, 'GitSignsCurrentLineBlame', { fg = muted })
   local function mode_hl(group, accent)
     if accent then
       vim.api.nvim_set_hl(0, group, { fg = editor_bg, bg = accent, bold = true })
@@ -984,7 +1226,9 @@ end
 
 function M.setup()
   vim.o.winborder = 'rounded'
-  vim.o.laststatus = 3
+  vim.o.laststatus = 0
+  vim.o.cmdheight = 0
+  vim.o.ruler = false
   vim.o.winbar = ''
   vim.opt.fillchars:append {
     eob = ' ',
@@ -1093,6 +1337,12 @@ function M.setup()
         end
         M.relayout()
       end)
+    end,
+  })
+  vim.api.nvim_create_autocmd('TabClosed', {
+    group = group,
+    callback = function(event)
+      layouts[tonumber(event.file)] = nil
     end,
   })
   vim.api.nvim_create_autocmd('VimResized', {

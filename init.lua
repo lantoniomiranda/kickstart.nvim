@@ -129,6 +129,20 @@ vim.keymap.set('n', '<C-k>', function()
   require('custom.panels').focus 'k'
 end, { desc = 'Move focus to the upper window' })
 
+-- A real :split from a card splits the canvas. These open another editor card instead.
+vim.keymap.set('n', '<leader>sv', function()
+  require('custom.panels').split_editor 'v'
+end, { desc = 'Split vertically' })
+vim.keymap.set('n', '<leader>sh', function()
+  require('custom.panels').split_editor 'h'
+end, { desc = 'Split horizontally' })
+vim.keymap.set('n', '<C-w>v', function()
+  require('custom.panels').split_editor 'v'
+end, { desc = 'Split vertically' })
+vim.keymap.set('n', '<C-w>s', function()
+  require('custom.panels').split_editor 'h'
+end, { desc = 'Split horizontally' })
+
 -- Custom mappings
 vim.keymap.set('n', '<leader>cs', ':Telescope colorscheme<CR>', { desc = 'Change colorscheme' })
 vim.keymap.set('n', '<leader>w', ':w<CR>', { desc = 'Save changes' })
@@ -348,6 +362,17 @@ require('lazy').setup({
         topdelete = { text = '‾' },
         changedelete = { text = '~' },
       },
+      -- Zed-style: the current line shows its author and relative time at the end of the line.
+      current_line_blame = true,
+      current_line_blame_opts = {
+        virt_text = true,
+        virt_text_pos = 'eol',
+        delay = 400,
+        use_focus = true,
+      },
+      -- nf-oct-git_branch, the branch mark, so the annotation reads as git blame.
+      current_line_blame_formatter = '  ' .. vim.fn.nr2char(0xf418) .. ' <author>, <author_time:%R>',
+      current_line_blame_formatter_nc = '  ' .. vim.fn.nr2char(0xf418) .. ' Not committed yet',
     },
   },
 
@@ -507,7 +532,7 @@ require('lazy').setup({
 
       -- See `:help telescope.builtin`
       local builtin = require 'telescope.builtin'
-      vim.keymap.set('n', '<leader>sh', builtin.help_tags, { desc = '[S]earch [H]elp' })
+      vim.keymap.set('n', '<leader>sH', builtin.help_tags, { desc = '[S]earch [H]elp' })
       vim.keymap.set('n', '<leader>sk', builtin.keymaps, { desc = '[S]earch [K]eymaps' })
       vim.keymap.set('n', '<leader>sf', builtin.find_files, { desc = '[S]earch [F]iles' })
       vim.keymap.set('n', '<leader>ss', builtin.builtin, { desc = '[S]earch [S]elect Telescope' })
@@ -624,17 +649,13 @@ require('lazy').setup({
       -- set use_icons to true if you have a Nerd Font
       local function statusline_active()
         local diagnostics = statusline.section_diagnostics { trunc_width = 75 }
-        local filename = statusline.section_filename { trunc_width = 140 }
-        local location = statusline.section_location { trunc_width = 75 }
         local search = statusline.section_searchcount { trunc_width = 75 }
 
         return statusline.combine_groups {
           { hl = 'MiniStatuslineDevinfo', strings = { diagnostics } },
           '%<',
-          { hl = 'MiniStatuslineFilename', strings = { filename } },
           '%=',
           { hl = 'MiniStatuslineDevinfo', strings = { search } },
-          { hl = 'MiniStatuslineFilename', strings = { location } },
         }
       end
 
@@ -643,30 +664,10 @@ require('lazy').setup({
         content = {
           active = statusline_active,
           inactive = function()
-            return '%#MiniStatuslineInactive# ' .. require('custom.panels').repo_path() .. '%='
+            return '%#MiniStatuslineInactive#'
           end,
         },
       }
-
-      -- You can configure sections in the statusline by overriding their
-      -- default behavior. For example, here we set the section for
-      -- cursor location to LINE:COLUMN
-      ---@diagnostic disable-next-line: duplicate-set-field
-      statusline.section_location = function()
-        return '%2l:%-2v'
-      end
-
-      ---@diagnostic disable-next-line: duplicate-set-field
-      statusline.section_filename = function(args)
-        if args and statusline.is_truncated(args.trunc_width) then
-          local tail = vim.fn.expand '%:t'
-          if tail == '' then
-            return '[No Name]'
-          end
-          return tail
-        end
-        return require('custom.panels').repo_path()
-      end
 
       -- ... and there is more!
       --  Check out: https://github.com/echasnovski/mini.nvim
